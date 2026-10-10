@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="uz"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TubeBoost — YouTube statistika va video tahlil</title>
+<style>
+:root{--bg:#0b0d14;--card:rgba(255,255,255,.07);--in:rgba(255,255,255,.08);--bd:rgba(255,255,255,.13);--tx:#f3f4f8;--mu:#a3a9b8;--ac:#ff2d55;--ac2:#7c5cff;--ok:#22c55e}
+@media (prefers-color-scheme:light){:root{--bg:#eef0f8;--card:rgba(255,255,255,.72);--in:rgba(0,0,0,.05);--bd:rgba(0,0,0,.09);--tx:#151821;--mu:#5b6272}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--tx);background:var(--bg);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow-x:hidden}
+.orb{position:fixed;border-radius:50%;filter:blur(90px);opacity:.55;z-index:-1;animation:fl 18s ease-in-out infinite alternate}
+.o1{width:420px;height:420px;background:var(--ac);top:-120px;left:-100px}.o2{width:460px;height:460px;background:var(--ac2);top:30%;right:-160px;animation-delay:-6s}.o3{width:380px;height:380px;background:#0ea5e9;bottom:-140px;left:20%;animation-delay:-11s}
+@keyframes fl{to{transform:translate(40px,-50px) scale(1.15)}}
+@media (prefers-reduced-motion:reduce){.orb{animation:none}}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;max-width:760px;margin:0 auto}
+h1{font-size:21px;margin:0;letter-spacing:-.5px}h1 span{background:linear-gradient(90deg,var(--ac),var(--ac2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{font-size:17px;margin:0}
+#code{width:104px;padding:7px 9px;border:1px solid var(--bd);border-radius:10px;background:var(--in);color:var(--tx);font-size:13px}
+#bd{font-size:12px;padding:4px 10px;border-radius:20px;background:var(--in);border:1px solid var(--bd)}
+nav{display:flex;gap:6px;overflow-x:auto;padding:0 14px 10px;max-width:760px;margin:0 auto}
+nav button{white-space:nowrap;border:1px solid var(--bd);background:var(--in);color:var(--tx);padding:9px 15px;border-radius:22px;font-size:14px;cursor:pointer}
+nav button.on{background:linear-gradient(90deg,var(--ac),var(--ac2));color:#fff;border-color:transparent}
+main{max-width:760px;margin:0 auto;padding:4px 14px 48px}
+.c{background:var(--card);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--bd);border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 8px 30px rgba(0,0,0,.18)}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.k{background:var(--in);border-radius:12px;padding:11px}.k b{display:block;font-size:21px}.k small{color:var(--mu)}
+input,textarea{width:100%;padding:11px;margin-top:8px;border:1px solid var(--bd);border-radius:12px;background:var(--in);color:var(--tx);font:inherit}
+label{display:block;font-size:13px;color:var(--mu);margin-top:10px}
+.b{background:linear-gradient(90deg,var(--ac),var(--ac2));color:#fff;border:0;border-radius:12px;padding:12px 16px;font-size:15px;font-weight:600;margin-top:12px;width:100%;cursor:pointer}
+.b.s{background:var(--in);color:var(--tx);border:1px solid var(--bd);width:auto;padding:8px 12px;font-size:13px;margin:0}
+.b:disabled{opacity:.45;cursor:default}
+.mu{color:var(--mu);font-size:13px}.er{color:#ff6b86;margin-top:8px}.ok{color:var(--ok)}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.ch{display:flex;gap:14px;align-items:center}
+.av{width:70px;height:70px;border-radius:50%;overflow:hidden;flex:none;background:linear-gradient(135deg,var(--ac),var(--ac2));border:2px solid var(--bd)}.av img{width:100%;height:100%;object-fit:cover}
+.ring{width:130px;height:130px;border-radius:50%;display:grid;place-items:center;margin:8px auto}
+.ring i{width:100px;height:100px;border-radius:50%;background:var(--bg);display:grid;place-items:center;font:700 30px system-ui;font-style:normal}
+.bar{height:8px;border-radius:8px;background:var(--in);overflow:hidden;margin:4px 0 10px}.bar div{height:100%;border-radius:8px}
+.tip{padding:9px 0;border-top:1px solid var(--bd)}
+.pay{border-top:1px solid var(--bd);padding:10px 0}.pay img{max-width:100%;max-height:240px;border-radius:10px;margin:6px 0;display:block}
+</style></head><body>
+<div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+<header><h1>Tube<span>Boost</span></h1><span id="bd"></span><input id="code" placeholder="Kirish kodi" autocomplete="off"></header>
+<nav id="nav"></nav><main id="m"></main>
+<script>
+// Cloudflare Worker manzilingizni shu yerga yozing:
+const API = "https://SIZNING-WORKER.workers.dev";
+const LOCK = 12e4; // kanalni almashtirish oralig'i: 2 daqiqa
+
+const $ = s => document.querySelector(s), f = n => Number(n).toLocaleString('ru-RU'), M = h => { $('#m').innerHTML = h };
+const ls = { g: k => { try { return JSON.parse(localStorage.getItem(k)) } catch (e) { return null } }, s: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch (e) {} } };
+const post = async (p, b, h) => { const r = await fetch(API + p, { method: 'POST', headers: { 'content-type': 'application/json', ...h }, body: JSON.stringify(b) }); return { ok: r.ok, d: await r.json() } };
+const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), b => (b % 36).toString(36)).join('');
+let did = ls.g('vid') || rid(); ls.s('vid', did);
+let S = { price: 25000, days: 30, card: '', note: '' }, me = { active: false, until: 0, free: true }, tab = 'stat', isAdmin = false, timer;
+const TABS = { stat: '📊 Statistika', vid: '🎬 Video tahlil', sub: '⭐ Obuna', adm: '🔧 Admin' };
+
+function nav() {
+  const n = $('#nav'); n.innerHTML = '';
+  Object.keys(TABS).forEach(k => { if (k === 'adm' && !isAdmin) return; const b = document.createElement('button'); b.textContent = TABS[k]; b.className = tab === k ? 'on' : ''; b.onclick = () => { tab = k; render() }; n.appendChild(b) });
+  $('#bd').textContent = me.active ? `⭐ Obuna: ${Math.ceil((me.until - Date.now()) / 864e5)} kun` : 'Bepul';
+}
+function render() { clearInterval(timer); nav(); ({ stat: vStat, vid: vVid, sub: vSub, adm: vAdm })[tab]() }
+async function refreshMe() { try { const r = await post('/api/me', { id: did }); if (r.ok) me = r.d } catch (e) {} }
+function parse(u) {
+  u = (u || '').trim(); if (!(u.includes('youtube.com/') || u[0] === '@')) return null;
+  const i = u.indexOf('youtube.com/'), a = (i >= 0 ? u.slice(i + 12) : u).split('?')[0].split('#')[0].split('/').filter(Boolean);
+  if (!a.length) return null; let h = null;
+  if (a[0][0] === '@') h = a[0]; else if (['channel', 'user'].includes(a[0]) && a[1]) h = a[0] + '/' + a[1];
+  return h && /^[A-Za-z0-9_.@/-]+$/.test(h) ? h : null;
+}
+
+/* ---------- STATISTIKA ---------- */
+const POOL = [
+  [d => d.v < 500, "Sarlavhani va'da yoki savol shaklida yozing: tomoshabin nima olishini darrov ko'rsin."],
+  [d => d.v < 2000, "Thumbnail: bitta katta yuz yoki obyekt, 3 ta so'zdan kam matn, yorqin kontrast."],
+  [d => d.r < 5, "Video oxirida aniq chaqiriq qiling: 'Keyingi videoda ... ko'rasiz, obuna bo'ling'."],
+  [d => d.r < 15, "Birinchi 5 soniyada asosiy natijani ko'rsating, uzun salomlashuvni qisqartiring."],
+  [d => d.n < 30, "Haftasiga kamida 2 ta video joylang, bir xil kunlarda: algoritm izchillikni yaxshi ko'radi."],
+  [d => d.n < 100, "Shorts (60 soniyagacha) sinab ko'ring: yangi tomoshabinga eng tez yetib boradi."],
+  [d => d.v > 5000, "Eng yaxshi ko'rilgan 3 videongiz mavzusini takrorlang, seriyaga aylantiring."],
+  [d => d.s < 1000, "Ro'yxatga olingan tomoshabinlar bilan muloqot qiling: dastlabki 1 soatda izohlarga javob bering."],
+  [d => true, "Playlist yarating: bitta videodan keyin keyingisi avtomatik ochilsa, ko'rish vaqti oshadi."],
+  [d => true, "Sarlavhaning dastlabki 40 belgisida asosiy kalit so'zni yozing, telefonda to'liq ko'rinadi."],
+  [d => true, "Tavsifning birinchi 2 qatorida video mazmunini va kalit so'zlarni yozing."],
+  [d => true, "Analytics'da 'Auditoriya ushlab turish' grafigini ko'ring: tomoshabin qaysi soniyada ketayotganini toping."],
+  [d => true, "Har videoga yangi thumbnail variantini sinab ko'ring, 2 kundan keyin yaxshisini qoldiring."],
+  [d => true, "Mavzuni raqobatchilarning eng ko'p ko'rilgan videolaridan oling, lekin o'z yondashuvingizni qo'shing."]
+];
+function shuffle(a, seed) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { seed = (seed * 1664525 + 1013904223) % 4294967296; const j = seed % (i + 1);[a[i], a[j]] = [a[j], a[i]] } return a }
+function vStat() {
+  const c = ls.g('chan');
+  if (!c) {
+    M(`<div class="c"><h2>📺 Kanalingizni ulang</h2><p class="mu">YouTube kanal havolasini kiriting (youtube.com/@nom yoki /channel/...). Statistika o'zi chiqadi va har 3 daqiqada yangilanadi.</p><input id="cu" placeholder="https://youtube.com/@kanalnomi"><button class="b" id="cs">Statistikani ko'rsatish</button><div id="ce" class="er"></div></div>`);
+    $('#cs').onclick = () => { const h = parse($('#cu').value); if (!h) { $('#ce').textContent = "Havola noto'g'ri. Masalan: https://youtube.com/@kanalnomi"; return } ls.s('chan', { h, ts: Date.now() }); render() };
+    return;
+  }
+  M(`<div class="c"><div class="ch"><div class="av"><img id="im" alt=""></div><div style="flex:1"><h2 id="ti">...</h2><div class="mu" id="up"></div></div></div><div class="g" id="st"></div><div id="er" class="er"></div></div><div class="c" id="tp"><h2>💡 Kanal o'sishi uchun tavsiyalar</h2><div id="tl" class="mu">Yuklanmoqda...</div></div><div class="c row"><span class="mu" id="lk"></span><button class="b s" id="cc">Kanalni almashtirish</button></div>`);
+  const lock = () => { const l = Math.ceil((c.ts + LOCK - Date.now()) / 1e3); $('#lk').textContent = l > 0 ? `Almashtirish uchun ${Math.floor(l / 60)}:${String(l % 60).padStart(2, '0')} kuting` : 'Kanalni almashtirish mumkin'; $('#cc').disabled = l > 0 };
+  $('#cc').onclick = () => { ls.s('chan', null); render() }; lock();
+  const load = async () => {
+    try {
+      const r = await fetch(API + '/api/channel?q=' + encodeURIComponent(c.h)), d = await r.json(); if (d.error) throw d.error;
+      $('#ti').textContent = d.title; $('#im').src = d.img; $('#er').textContent = '';
+      const v = d.videos ? Math.round(d.views / d.videos) : 0, rt = d.views ? d.subs / d.views * 1000 : 0;
+      $('#st').innerHTML = [['Obunachi', d.hidden ? 'yashirin' : f(d.subs)], ["Jami ko'rishlar", f(d.views)], ['Videolar', f(d.videos)], ["Video boshiga ko'rish", f(v)], ["Obuna / 1000 ko'rish", rt.toFixed(1)]].map(x => `<div class="k"><small>${x[0]}</small><b>${x[1]}</b></div>`).join('');
+      $('#up').textContent = 'Yangilandi: ' + new Date().toLocaleTimeString('ru-RU') + ' · har 3 daqiqada';
+      const info = { v, r: rt, n: d.videos, s: d.subs }, all = shuffle(POOL.filter(p => p[0](info)).map(p => p[1]), Math.floor(Date.now() / 18e4) + d.videos);
+      const k = me.active ? 6 : 2; $('#tl').innerHTML = ''; $('#tl').style.color = 'var(--tx)';
+      all.slice(0, k).forEach(t => { const e = document.createElement('div'); e.className = 'tip'; e.textContent = t; $('#tl').appendChild(e) });
+      if (!me.active) { const e = document.createElement('div'); e.className = 'tip mu'; e.textContent = `🔒 Yana ${Math.min(4, all.length - 2)} ta tavsiya obuna bilan ochiladi`; $('#tl').appendChild(e) }
+    } catch (e) { $('#er').textContent = typeof e === 'string' ? e : "Ulanib bo'lmadi, birozdan keyin qayta uriniladi" }
+  };
+  load(); let n = 0; timer = setInterval(() => { lock(); if (++n % 180 === 0) load() }, 1e3);
+}
+
+/* ---------- VIDEO TAHLIL ---------- */
+const band = (x, a, b, c, d) => x <= a || x >= d ? 0 : x >= b && x <= c ? 100 : x < b ? (x - a) / (b - a) * 100 : (d - x) / (d - c) * 100;
+const CMP = { hook: ['Boshlanish (hook)', "Birinchi 3 soniyada harakat yoki o'zgarish qo'shing: kuchli kadr, savol yoki natija bilan boshlang."], pace: ['Montaj sur\'ati', "Kadrlarni tez-tez almashtiring (har 3-6 soniyada), cho'zilgan statik joylarni qisqartiring."], light: ['Yorug\'lik', "Yorug'likni to'g'rilang: juda qorong'u yoki ortiqcha yorqin kadrlar tomoshabinni qaytaradi."], contrast: ['Kontrast', "Kontrastni oshiring: asosiy obyekt fondan aniq ajralib tursin."], color: ['Ranglar', "Ranglarni jonlantiring: to'yinganlikni biroz oshiring, bir xil kulrang fondan qoching."], res: ['Sifat', "Kamida 1080p formatda yozing va eksport qiling."], dur: ['Davomiylik', "Davomiylikni formatga moslang: vertikal uchun 15-60 soniya, gorizontal uchun 45-150 soniya yaxshi."] };
+async function analyze(file) {
+  const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(file);
+  await new Promise((ok, no) => { v.onloadedmetadata = ok; v.onerror = no });
+  const d = v.duration, W = v.videoWidth, Hh = v.videoHeight; if (d > 150) throw 'long';
+  const cv = document.createElement('canvas'); cv.width = 64; cv.height = 36; const x = cv.getContext('2d', { willReadFrequently: true });
+  const N = Math.max(8, Math.min(30, Math.round(d / 3))), ts = [.3, 1, 2, 3].filter(t => t < d - .2).concat(Array.from({ length: N }, (_, i) => d * (i + .5) / N)).sort((a, b) => a - b);
+  let prev = null; const fr = [];
+  for (const t of ts) {
+    const sk = new Promise(r => { v.onseeked = r }); v.currentTime = Math.min(t, d - .05); await Promise.race([sk, new Promise(r => setTimeout(r, 2500))]);
+    x.drawImage(v, 0, 0, 64, 36); const px = x.getImageData(0, 0, 64, 36).data, n = px.length / 4, g = new Float32Array(n); let sm = 0, sq = 0, st = 0;
+    for (let i = 0; i < n; i++) { const r = px[i * 4], gg = px[i * 4 + 1], b = px[i * 4 + 2], l = .299 * r + .587 * gg + .114 * b; g[i] = l; sm += l; sq += l * l; const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b); st += mx ? (mx - mn) / mx : 0 }
+    const mean = sm / n; let df = null; if (prev) { df = 0; for (let i = 0; i < n; i++) df += Math.abs(g[i] - prev[i]); df /= n }
+    fr.push({ t, mean, sd: Math.sqrt(Math.max(0, sq / n - mean * mean)), sat: st / n, df }); prev = g;
+  }
+  const avg = a => a.length ? a.reduce((p, c) => p + c, 0) / a.length : 0, tr = fr.filter(q => q.df !== null), hk = tr.filter(q => q.t <= 3.2).map(q => q.df);
+  const vertical = Hh > W, ms = Math.min(W, Hh), cut = tr.length ? tr.filter(q => q.df > 25).length / tr.length : 0;
+  const s = {
+    hook: hk.length ? band(avg(hk), 1, 8, 35, 70) : 50, pace: band(cut, 0, .15, .6, .95), light: band(avg(fr.map(q => q.mean)), 20, 70, 185, 240),
+    contrast: Math.min(100, avg(fr.map(q => q.sd)) / 50 * 100), color: Math.min(100, avg(fr.map(q => q.sat)) / .35 * 100),
+    res: ms >= 1080 ? 100 : ms >= 720 ? 80 : ms >= 480 ? 55 : 30, dur: vertical ? band(d, 2, 8, 60, 240) : band(d, 5, 30, 150, 400)
+  };
+  const w = { hook: .25, pace: .15, light: .12, contrast: .12, color: .1, res: .13, dur: .13 };
+  const total = Math.round(Object.keys(w).reduce((p, k) => p + s[k] * w[k], 0));
+  return { total, s, d, W, Hh, vertical };
+}
+function vVid() {
+  M(`<div class="c"><h2>🎬 Video tahlil</h2><p class="mu">Eng ko'pi bilan 2 daqiqa 30 soniya. Video qurilmangizda tahlil qilinadi, hech qayerga yuklanmaydi.</p>
+  <div class="mu">${me.active ? '⭐ Obunangiz faol: cheksiz tahlil' : me.free ? '🎁 1 ta bepul tahlil qoldi' : "🔒 Bepul urinish tugagan. Obuna oling"}</div>
+  <input type="file" id="f" accept="video/*"><div id="info" class="mu" style="margin-top:6px"></div><button class="b" id="an">Tahlil qilish</button></div><div id="res"></div>`);
+  $('#an').onclick = async () => {
+    const file = $('#f').files[0], R = $('#res'); if (!file) { $('#info').textContent = 'Avval video tanlang.'; return }
+    $('#an').disabled = true; $('#info').textContent = 'Tekshirilmoqda...';
+    try {
+      const u = await post('/api/use', { id: did });
+      if (!u.ok) { R.innerHTML = `<div class="c er">Bepul urinish tugadi. <b>Obuna</b> bo'limidan ${f(S.price)} so'mga ${S.days} kunlik obuna oling.</div>`; $('#info').textContent = ''; $('#an').disabled = false; await refreshMe(); nav(); return }
+      $('#info').textContent = 'Video tahlil qilinmoqda...';
+      const a = await analyze(file); await refreshMe(); nav();
+      const col = a.total > 70 ? '#22c55e' : a.total > 45 ? '#f59e0b' : '#ff2d55', verdict = a.total > 70 ? 'Yuqori imkoniyat' : a.total > 45 ? "O'rtacha imkoniyat" : 'Past imkoniyat';
+      $('#info').textContent = `${Math.round(a.d)} s · ${a.W}×${a.Hh} · ${a.vertical ? 'vertikal (Shorts)' : 'gorizontal'}`;
+      const weak = Object.keys(a.s).sort((p, q) => a.s[p] - a.s[q]).filter(k => a.s[k] < 70).slice(0, 3);
+      R.innerHTML = `<div class="c"><div class="ring" style="background:conic-gradient(${col} ${a.total * 3.6}deg,var(--in) 0)"><i>${a.total}%</i></div><h2 style="text-align:center">${verdict}</h2><div class="mu" style="text-align:center">Tavsiyaga chiqish ehtimoli bo'yicha taxminiy baho (kafolat emas)</div></div>
+      <div class="c"><h2>Tafsilot</h2><div style="margin-top:10px">${Object.keys(CMP).map(k => `<div class="row"><span>${CMP[k][0]}</span><b>${Math.round(a.s[k])}%</b></div><div class="bar"><div style="width:${a.s[k]}%;background:${a.s[k] > 70 ? '#22c55e' : a.s[k] > 45 ? '#f59e0b' : '#ff2d55'}"></div></div>`).join('')}</div></div>
+      <div class="c"><h2>🔧 Nimani yaxshilash kerak</h2>${weak.length ? weak.map(k => `<div class="tip">${CMP[k][1]}</div>`).join('') : '<div class="tip ok">Hammasi yaxshi ko\'rinadi. Sarlavha va thumbnail ustida ishlang.</div>'}</div>`;
+    } catch (e) { R.innerHTML = `<div class="c er">${e === 'long' ? "Video 2 daqiqa 30 soniyadan uzun. Qisqaroq video tanlang." : "Videoni o'qib bo'lmadi. Boshqa format (MP4) bilan urinib ko'ring."}</div>`; $('#info').textContent = '' }
+    $('#an').disabled = false;
+  };
+}
+
+/* ---------- OBUNA ---------- */
+function vSub() {
+  M(`<div class="c"><h2>⭐ Premium obuna</h2><div style="font-size:30px;font-weight:700;margin:8px 0">${f(S.price)} so'm <span class="mu" style="font-size:14px">/ ${S.days} kun</span></div><div>Cheksiz video tahlil va barcha o'sish tavsiyalari.</div>
+  <div style="margin-top:8px" class="${me.active ? 'ok' : 'mu'}">${me.active ? `✔ Faol. Qoldi: ${Math.ceil((me.until - Date.now()) / 864e5)} kun` : 'Hozir obuna yo\'q'}</div></div>
+  <div class="c"><h2>To'lov</h2><div style="margin:8px 0">Karta: <b id="cd"></b></div><div class="mu" id="nt"></div>
+  <label>Ismingiz</label><input id="nm" maxlength="60"><label>Chek rasmi</label><input type="file" id="ck" accept="image/*"><button class="b" id="sd">Chekni yuborish</button><button class="b s" id="rf" style="margin-top:10px">Obunani tekshirish</button><div id="st" class="mu" style="margin-top:8px">${ls.g('sent') ? 'Chek yuborilgan. Admin tasdiqlagach "Obunani tekshirish" ni bosing.' : ''}</div></div>`);
+  $('#cd').textContent = S.card || 'Admin hali kiritmagan'; $('#nt').textContent = S.note || '';
+  $('#sd').onclick = async () => {
+    const fl = $('#ck').files[0]; if (!fl) { $('#st').textContent = 'Avval chek rasmini tanlang.'; return }
+    $('#sd').disabled = true;
+    try {
+      const im = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = URL.createObjectURL(fl) });
+      const cv = document.createElement('canvas'), k = Math.min(1, 800 / Math.max(im.width, im.height)); cv.width = im.width * k; cv.height = im.height * k; cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+      const r = await post('/api/pay', { id: did, name: $('#nm').value, img: cv.toDataURL('image/jpeg', .6) });
+      if (r.ok) { ls.s('sent', 1); $('#st').textContent = 'Chek yuborildi ✔ Admin tasdiqlashini kuting.' } else $('#st').textContent = r.d.error || 'Yuborilmadi';
+    } catch (e) { $('#st').textContent = "Rasmni o'qib bo'lmadi yoki serverga ulanilmadi." }
+    $('#sd').disabled = false;
+  };
+  $('#rf').onclick = async () => { await refreshMe(); render() };
+}
+
+/* ---------- ADMIN ---------- */
+$('#code').oninput = e => { if (e.target.value !== 'Admin2014') return; e.target.value = ''; openAdmin() };
+async function openAdmin() {
+  const t = sessionStorage.getItem('adm') || prompt('Admin tokenini kiriting'); if (!t) return;
+  let r; try { r = await fetch(API + '/api/admin/stats', { headers: { 'x-admin': t } }) } catch (e) { alert('Serverga ulanib bo\'lmadi'); return }
+  if (!r.ok) { sessionStorage.removeItem('adm'); alert("Sizda admin huquqi yo'q"); return }
+  sessionStorage.setItem('adm', t); isAdmin = true; tab = 'adm'; render();
+}
+async function vAdm() {
+  const H = { 'x-admin': sessionStorage.getItem('adm') || '' }, s = await (await fetch(API + '/api/admin/stats', { headers: H })).json(), st = s.set;
+  M(`<div class="c"><h2>📈 Sayt kirishlari</h2><div class="g"><div class="k"><small>Kirgan odamlar</small><b>${f(s.vu)}</b></div><div class="k"><small>Jami kirishlar</small><b>${f(s.vt)}</b></div></div></div>
+  <div class="c"><h2>⚙️ Obuna sozlamalari</h2><label>Narx (so'm)</label><input id="p" type="number"><label>Muddat (kun)</label><input id="d" type="number"><label>Karta raqami</label><input id="cd"><label>To'lov izohi</label><textarea id="nt" rows="2"></textarea><button class="b" id="ss">Saqlash</button><div id="sm" class="mu"></div></div>
+  <div class="c"><h2>🔑 YouTube API kaliti</h2><div class="mu">${s.hasKey ? "O'rnatilgan ✔ (qayta ko'rsatilmaydi)" : 'Hali kiritilmagan'}</div><input id="ak" type="password" placeholder="Yangi API kalit" autocomplete="off"><button class="b" id="sk">Saqlash</button><div id="am" class="mu"></div></div>
+  <div class="c"><div class="row"><h2>🧾 To'lov cheklari</h2><button class="b s" id="ld">Yangilash</button></div><div id="pl" class="mu">Yuklanmoqda...</div></div>`);
+  $('#p').value = st.price; $('#d').value = st.days; $('#cd').value = st.card; $('#nt').value = st.note;
+  $('#ss').onclick = async () => { const r = await post('/api/admin/settings', { price: $('#p').value, days: $('#d').value, card: $('#cd').value, note: $('#nt').value }, H); $('#sm').textContent = r.ok ? 'Saqlandi ✔' : r.d.error; if (r.ok) S = { ...S, price: +$('#p').value, days: +$('#d').value, card: $('#cd').value, note: $('#nt').value } };
+  $('#sk').onclick = async () => { const r = await post('/api/admin/key', { key: $('#ak').value.trim() }, H); $('#am').textContent = r.ok ? 'Saqlandi ✔' : r.d.error; if (r.ok) $('#ak').value = '' };
+  const load = async () => {
+    const box = $('#pl'); const r = await (await fetch(API + '/api/admin/pays', { headers: H })).json(); box.innerHTML = '';
+    if (!r.pays || !r.pays.length) { box.textContent = "Hozircha cheklar yo'q."; return }
+    r.pays.forEach(x => {
+      const d = document.createElement('div'); d.className = 'pay';
+      const t = document.createElement('div'); t.className = 'row'; const a = document.createElement('span'); a.textContent = `${new Date(x.ts).toLocaleString('ru-RU')} · ${x.name || 'ismsiz'}`; const b = document.createElement('b'); b.textContent = x.status; t.append(a, b);
+      const id = document.createElement('div'); id.className = 'mu'; id.textContent = 'ID: ' + x.id.slice(0, 10);
+      const im = document.createElement('img'); im.src = x.img; d.append(t, id, im);
+      if (x.status === 'pending') {
+        const r2 = document.createElement('div'); r2.className = 'row'; r2.style.justifyContent = 'flex-start';
+        [['✔ Tasdiqlash', true], ['✖ Rad etish', false]].forEach(([l, ok]) => { const bt = document.createElement('button'); bt.className = 'b s'; bt.textContent = l; bt.onclick = async () => { bt.disabled = true; await post('/api/admin/decide', { k: x.k, ok }, H); load() }; r2.appendChild(bt) }); d.appendChild(r2);
+      }
+      box.appendChild(d);
+    });
+  };
+  $('#ld').onclick = load; load();
+}
+
+(async () => {
+  try { if (!sessionStorage.getItem('v')) { fetch(API + '/api/visit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: did }) }); sessionStorage.setItem('v', 1) } } catch (e) {}
+  render();
+  try { S = await (await fetch(API + '/api/settings')).json() } catch (e) {}
+  await refreshMe(); render();
+})();
+</script></body></html>
